@@ -282,7 +282,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 				# Strip away the stuff other than numbers, commas and decimals
 				check_rent = numeric_cre.match(value_text).group().strip().replace(' ', '')
 				if "Vecka" in value_text or "vecka" in value_text:
-					check_rent = check_rent*4
+					check_rent = int(check_rent)*4
 				listing_detail['rent'] = listing_detail['rent'].replace(u'\xa0', '')
 				listing_rent_num_known = numeric_cre.match(listing_detail['rent']).group().strip()
 				if listing_detail['rent'] == "":

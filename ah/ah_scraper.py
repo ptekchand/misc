@@ -77,10 +77,12 @@ def ah_get_headers(base_url, url_path, page_no, method = "POST"):
 	}
 	if method == "POST":
 		headers["Content-type"] = "application/x-www-form-urlencoded"
+	if g_session_cookies != "":
+		headers["Cookie"] = g_session_cookies
 	return headers
 
 #------------------------------------------------------------------------------
-# TODO: Merge in.
+# TODO: Merge in from RL (weather scraper).
 #def do_connect_response_with_socket_error_sleep(base_url, url_path, url_params, headers, max_errors = 2):
 
 #------------------------------------------------------------------------------
@@ -153,9 +155,9 @@ def ah_visit_listing(listing_detail, save_page = False):
 	#print response_data
 	# Parse the received page.
 	if save_page:
-		with open("Response_{}.txt".format(listing_detail["item_id"]), 'w') as resp_handle:
+		with open("page_data/Response_{}.txt".format(listing_detail["item_id"]), 'w') as resp_handle:
 			resp_handle.write(response_data)
-			quit()
+			#quit()
 	
 	ah_parse_listing_page(response_data, listing_detail)
 
@@ -188,7 +190,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 	listing_detail["ad_expired"] = False
 	listing_detail["street"] = None
 	listing_detail["furnished"] = False
-	listing_detail["duration"] = 0 # 0 = unknown, 1 = kort, 2 = tillsvidare, 3 = längre period
+	listing_detail["duration"] = "" # 0 = unknown, 1 = kort, 2 = tillsvidare, 3 = längre period
 	listing_detail["category"] = "" #"lägenhet" # class=".subject-param .category"
 	listing_detail["area"] = "" #"Stockholms stad - Katarina, Sofia"
 	listing_detail["contact"] = ""
@@ -324,7 +326,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 				if prev_value == "":
 					listing_detail["duration"] = value_text
 				else:
-					listing_detail["duration"] = "{} - {}".format(value_text, prev_value)
+					listing_detail["duration"] = u"{} - {}".format(value_text, prev_value)
 				pass
 			elif property_text == u"Utflyttning:":
 				#Tills vidare. # OR: 01 december 2015
@@ -332,7 +334,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 				if prev_value == "":
 					listing_detail["duration"] = value_text
 				else:
-					listing_detail["duration"] = "{} - {}".format(prev_value, value_text)
+					listing_detail["duration"] = u"{} - {}".format(prev_value, value_text)
 			elif property_text == u"Visningar:":
 				# Views of the ad
 				pass
@@ -340,15 +342,20 @@ def ah_parse_listing_page(response_data, listing_detail):
 				print u"WARN: {} has an unknown description_detail ({}):({})".format(listing_detail['item_id'], property_text, value_text)
 				g_stats["parse_warn"] += 1
 	
+	#sel_logon = CSSSelector('div.grid_9 > div.box_raised.clearfix > .box_info') # This is re-used for the login box and the warning about not pre-paying anything below
 	sel_contact_name = CSSSelector('div.grid_9 > div.box_raised.clearfix > h3')
-	name_h3 = get_first_element(sel_contact_name, page_element, 'h3', listing_detail['item_id'], 'div.grid_9 > div.box_raised.clearfix > h3')
-	if name_h3 is not None:
-		listing_detail["contact"] = (name_h3.text).strip()
+	if sel_contact_name(page_element) is not None:
+		name_h3 = get_first_element(sel_contact_name, page_element, 'h3', listing_detail['item_id'], 'div.grid_9 > div.box_raised.clearfix > h3 | name_h3')
+		if name_h3 is not None:
+			listing_detail["contact"] = (name_h3.text).strip()
 
-	sel_contact_number = CSSSelector('div.grid_9 > div.box_raised.clearfix > ul > li > .value')
-	number_span = get_first_element(sel_contact_name, page_element, 'span', listing_detail['item_id'], 'div.grid_9 > div.box_raised.clearfix > ul > li > .value')
-	if number_span is not None:
-		listing_detail["contact"] = u"{} {}".format( listing_detail["contact"], (number_span.text).strip() )
+		sel_contact_number = CSSSelector('div.grid_9 > div.box_raised.clearfix > ul > li > .value')
+		number_span = get_first_element(sel_contact_number, page_element, 'span', listing_detail['item_id'], 'div.grid_9 > div.box_raised.clearfix > ul > li > .value | number_span')
+		if number_span is not None:
+			listing_detail["contact"] = u"{} {}".format( listing_detail["contact"], (number_span.text).strip() )
+	else:
+		print u"WARN: {} visited without logging in.".format(listing_detail['item_id'])
+		
 	
 	'''<h2 style="margin-right: 48px;">Rum</h2>'''
 	sel_category = CSSSelector('#adinformation > h2')
@@ -552,42 +559,48 @@ def get_travel_time(depLong, depLat, destLong, destLat):
 	return travel_time
 
 #------------------------------------------------------------------------------
-def combine_cookies(old_cookies, new_cookies):
+def combine_cookies(old_cookie_str, new_set_cookie_str):
+	# This is an implementation looking at the _specific_ responses from this particular web service.
+	# Review: Use cookielib instead
+	# http://stackoverflow.com/questions/1016765/how-to-keep-alive-with-cookielib-and-httplib-in-python
 	#request_headers_cookie: ASP.NET_SessionId=pwosvvshtwkmjfkn0nab1snr; path=/; HttpOnly
 	#response_cookie: __RequestVerificationToken=VH5XOaMYSf9BGGYmOgFd5oj3O1PIZ0SYMXdLoaf0N9BPD0VvMMLI_P2RDko-vP3UJT81gVZlra1g9HqvZlhFGMJ0AJ5wWAxhOIAZo5NlaVlhDI1gBwEBOkvg5U7CWxF6A2nHv1RUTVWoie1BgQQapw2; path=/; HttpOnly
-	cookies_list = old_cookies.split('; ')
-	new_list = new_cookies.split('; ')
+	# Here's the BAD one:
+	#"email=me@some.domain; expires=Sat, 25-Jul-2015 15:09:31 GMT; path=/, .ASPXAUTH=B65FBAB1542F52FEC4C46FAA77FB951356C5AE9186E64FD1B712BE8522AF5915C69270B6CC10A9A541E4DD330F58DAD62705B4A9693359A6CE009ECB900F24906BBF61E65769EDCF1DD3979567ADC90D5395771D481C898E9B93B7A997A2E1D913C2BA2C124754D7668C256A8AA23ADA5084C599C76B2283A6EF536802FB043F34AAF0243D3854E8F370C79D4429CA278CD8FF4D3BF31BAF602070231FA4F50344B5D48AFE5AD0102D715C65A5131CF16FF01F37CBB6EF2F89D3E8F4BBC3E693; path=/; HttpOnly"
+	# What's up with the " path=/," part?
+	new_set_cookie_str = new_set_cookie_str.replace(' path=/,', '')
+	
+	old_cookie_list = old_cookie_str.split('; ')
+	new_cookie_list = new_set_cookie_str.split('; ')
 	
 	cookie_dict = {}
-	for a_cookie_param in cookies_list:
-		param_parts = a_cookie_param.split('=')
-		if len(param_parts) == 2:
-			cookie_dict[param_parts[0]] = param_parts[1]
-		elif len(param_parts) == 1:
-			cookie_dict[param_parts[0]] = None
+	for a_cookie_list in [old_cookie_list, new_cookie_list]:
+		for a_cookie_param in a_cookie_list:
+			param_parts = a_cookie_param.split('=')
+			if len(param_parts) == 2:
+				if param_parts[0].lower() not in ['path', 'expires']:
+					cookie_dict[param_parts[0]] = param_parts[1]
+			elif len(param_parts) == 1:
+				# This is stuff like "Secure", "HttpOnly" etc
+				#cookie_dict[param_parts[0]] = None
+				pass
 
-	for a_cookie_param in new_list:
-		param_parts = a_cookie_param.split('=')
-		if len(param_parts) == 2:
-			cookie_dict[param_parts[0]] = param_parts[1]
-		elif len(param_parts) == 1:
-			cookie_dict[param_parts[0]] = None
-	
-	combined_cookies = ""
+	combined_cookie_str = ""
 	for key in cookie_dict:
 		prefix = '; '
-		if combined_cookies == "":
+		if combined_cookie_str == "":
 			prefix = ''
-		cookie_param = key
+		cookie_param = key # 'HttpOnly' can be dropped. 'path=' can be dropped?
 		if cookie_dict[key] is not None:
 			cookie_param = "{}={}".format(key, cookie_dict[key])
-		combined_cookies = "{}{}{}".format(combined_cookies, prefix, cookie_param)
-		
-	return combined_cookies
+		combined_cookie_str = "{}{}{}".format(combined_cookie_str, prefix, cookie_param)
+	# Why was there a "path=/, .ASPXAUTH=..."? The additional "path=/; " can be dropped".
+	return combined_cookie_str
+
 #------------------------------------------------------------------------------
 def ah_do_login(email, passw):
 	# TODO: Consider using the 'requests' library instead
-	# First visit /, get the response_cookie. # Cookie	ASP.NET_SessionId=1plmjteybmdztrczqvrwhm0p
+	# First visit /, get the response_set_cookie. # Cookie	ASP.NET_SessionId=1plmjteybmdztrczqvrwhm0p
 	# Then /Account/Logon with the request header "X-Requested-With: XMLHttpRequest" set along with the cookie.
 	# The response will have a 	Set-Cookie	
 	# __RequestVerificationToken=nBu5XBG7cTK09S7BeZZb_J4q9sgrmoLp-UEJrtMdHo2QX8bGKoSeZoTJFLoqILkJcnG_xvzoWrn_pXZbU11z6YQnYjujQypLWcd_rS_y3sARLREyPuCSrNoyM7NvnLWInPAkve2WrhQOsU2BBLy7Fw2
@@ -610,10 +623,11 @@ def ah_do_login(email, passw):
 	connection.request("GET", url_path, url_params, request_headers)
 	response = connection.getresponse()
 	response_headers = response.getheaders()
-	response_cookie = response.getheader('set-cookie')
+	response_set_cookie = response.getheader('set-cookie')
 	response_data = response.read()
 	connection.close()
 	
+	current_cookies = combine_cookies("", response_set_cookie)
 	with open('ResponseHeaders_Root.js', 'w') as json_file_handle:
 		json.dump(response_headers, json_file_handle, indent=2)
 
@@ -624,9 +638,94 @@ def ah_do_login(email, passw):
 	url_path     = "/Account/LogOn"
 	
 	request_headers = ah_get_headers(base_url, url_path, page_no)
-	request_headers["Cookie"] = response_cookie
+	request_headers["Cookie"] = current_cookies
 	request_headers["Connection"] = "keep-alive"
 	request_headers["X-Requested-With"] ="XMLHttpRequest"
+	url_params = ""
+	# Make Connection
+	connection = httplib.HTTPConnection(base_url)
+	connection.request("GET", url_path, url_params, request_headers)
+	response = connection.getresponse()
+	response_headers = response.getheaders()
+	response_set_cookie = response.getheader('set-cookie')
+	response_data = response.read()
+	connection.close()
+
+	with open('ResponseHeaders_LogOn.js', 'w') as json_file_handle:
+		json.dump(response_headers, json_file_handle, indent=2)
+
+	with open("Response_{}.txt".format('LogOn'), 'w') as resp_handle:
+		resp_handle.write(response_data)
+	print u"current_cookies: {}".format( current_cookies )
+	print u"response_set_cookie: {}".format( response_set_cookie )
+	current_cookies = combine_cookies(current_cookies, response_set_cookie)
+	print u"LogOn: combined: {}".format( current_cookies )
+	#----------------------------------------------
+	# '#formlogon > .editor-field > #Email'
+	# '#formlogon > .editor-field > #Password'
+	# <input type="hidden" value="6r74T-SF4yZ6-WRPLZe_8DMqFeaq8SsQOR0fMY7IF_Ie6QGOJeUHxHwN26kVvUws5J-gJc6WQkPkcy160I6NuPALRJiLSfUj1WkpKBBaBdkijn-2sjpvEYl3vF_i41b9A1xCxvez4Sg_tEHsxCjO12cPU1CsWDa6Ep7iQkDaOGg1" name="__RequestVerificationToken">
+	# '#formlogon > input'
+	# Parse the login form to get required post data
+
+	url_path = "/loggain?formid=%23formlogon"
+	page_element = fromstring(response_data)
+	sel_form    = CSSSelector('form')
+	sel_input    = CSSSelector('input')
+	form_ele = get_first_element(sel_form, page_element, 'form', 'LogOn', 'form')
+	if form_ele is not None:
+		url_path = form_ele.get('action')
+	
+	request_vtoken = ""
+	input_ele_list = sel_input(form_ele) # form > input
+	if len(input_ele_list) <= 0:
+		print u"ERROR: The LogonForm does not have the required number of input fields!"
+		g_stats["listing_errors"] += 1
+	else:
+		for input_ele in input_ele_list:
+			if input_ele.get('name') == '__RequestVerificationToken':
+				request_vtoken = input_ele.get('value')
+	if request_vtoken == "":
+		print u"ERROR: The LogonForm does not have a request verification token!"
+	
+	request_headers = ah_get_headers(base_url, url_path, page_no)
+	request_headers["Cookie"] = current_cookies
+	request_headers["Connection"] = "keep-alive"
+	request_headers["X-Requested-With"] ="XMLHttpRequest"
+	
+	import urllib
+	url_params = "Email={}&Password={}&RememberMe=false&__RequestVerificationToken={}&X-Requested-With=XMLHttpRequest".format(urllib.quote(email), passw, request_vtoken)
+	# Make Connection
+	connection = httplib.HTTPConnection(base_url)
+	connection.request("POST", url_path, url_params, request_headers)
+	response = connection.getresponse()
+	response_headers = response.getheaders()
+	response_set_cookie = response.getheader('set-cookie')
+	response_data = response.read()
+	connection.close()
+
+	print u"current_cookies: {}".format( current_cookies )
+	print u"response_set_cookie: {}".format( response_set_cookie )
+	current_cookies = combine_cookies(current_cookies, response_set_cookie)
+	print u"loggain: combined: {}".format( current_cookies )
+
+	with open('ResponseHeaders_loggain.js', 'w') as json_file_handle:
+		json.dump(response_headers, json_file_handle, indent=2)
+
+	with open("Response_{}.txt".format('loggain'), 'w') as resp_handle:
+		resp_handle.write(response_data)
+
+	return current_cookies, True
+
+#------------------------------------------------------------------------------
+def ah_do_logout():
+	base_url     = "www.ah.se"
+	url_path     = "/Account/LogOff"
+	
+	page_no = 1
+	referer_url_path, url_params = ah_get_params(page_no)
+
+	request_headers = ah_get_headers(base_url, url_path, page_no)
+	
 	url_params = ""
 	# Make Connection
 	connection = httplib.HTTPConnection(base_url)
@@ -637,31 +736,13 @@ def ah_do_login(email, passw):
 	response_data = response.read()
 	connection.close()
 
-	with open('ResponseHeaders_LogOn.js', 'w') as json_file_handle:
+	with open('ResponseHeaders_LogOff.js', 'w') as json_file_handle:
 		json.dump(response_headers, json_file_handle, indent=2)
 
-	with open("Response_{}.txt".format('LogOn'), 'w') as resp_handle:
+	with open("Response_{}.txt".format('LogOff'), 'w') as resp_handle:
 		resp_handle.write(response_data)
-	print u"request_headers_cookie: {}".format( request_headers["Cookie"])
-	print u"response_cookie: {}".format( response_cookie )
-	print u"combined: {}".format( combine_cookies(request_headers["Cookie"], response_cookie) )
-	#----------------------------------------------
-
-	# '#formlogon > .editor-field > #Email'
-	# '#formlogon > .editor-field > #Password'
-	# <input type="hidden" value="6r74T-SF4yZ6-WRPLZe_8DMqFeaq8SsQOR0fMY7IF_Ie6QGOJeUHxHwN26kVvUws5J-gJc6WQkPkcy160I6NuPALRJiLSfUj1WkpKBBaBdkijn-2sjpvEYl3vF_i41b9A1xCxvez4Sg_tEHsxCjO12cPU1CsWDa6Ep7iQkDaOGg1" name="__RequestVerificationToken">
-	# '#formlogon > input'
-	#print u"--------------------------------------------------"
-	#print u"{}\n{}".format( json.dumps(response_headers, indent=2), response_cookie )
 	
-	# https://docs.python.org/2/library/httplib.html#httplib.responses
-	if response.status != 200 and response.status != 302:
-		print "ERROR: Unable to fetch from ({}) response.status({}: {})\n{}".format(base_url, response.status, response.reason, response)
-		global g_stats
-		g_stats["search_errors"] += 1
-	
-	print "INFO: Fetched from ({}) response.status({}: {})\n{}".format(base_url, response.status, response.reason, response)
-
+	print u"LogOff request sent."
 
 #------------------------------------------------------------------------------
 # main()
@@ -681,11 +762,12 @@ aCentralLat = "59.312768"
 aCentralLon = "18.0735245"
 
 listing_details_list = []
+
+g_session_cookies = ""
+g_max_time_delta = timedelta(days=60);
+
 g_unknown_response = "ResponseBodyUnknown.txt"
 g_json_datafile = "ResponseJSON.js"
-
-
-g_max_time_delta = timedelta(days=60);
 
 fetch_disabled_for_testing = False
 
@@ -697,13 +779,15 @@ if os.path.exists(g_json_datafile):
 		if len(listing_details_list) > 0:
 			last_listing_datetime = datetime.strptime( listing_details_list[-1]["datetime"], '%Y-%m-%d' )
 
+g_is_logged_in = False
 ah_email = ""
 ah_passw = ""
-g_session_cookie = ah_do_login(ah_email, ah_passw)
-quit()
+g_session_cookies, g_is_logged_in = ah_do_login(ah_email, ah_passw)
+#g_session_cookies = "email=me@some.domain; .ASPXAUTH=0F66A09F7590F85327D281D5E1CD0E3F499F20A992E78E1B9B4195D76D8A58CF0E3AE43038CEE758FAEB06548582FFA74F80DCBDF365A6485838C5CED3789540A4586798B86BA806E71796B84C7AF3AF0E87A69A9FEB59458F08C74D9975D6D91B1E5504DF58C143BF2B415F80E7C3766FBCADED661A4D4BBC68AAA6278AABE53EC2190FD327A9B198C359F13A3D16DBE1EA5AB8525BC86D93075738FEE405677E27EBDEC9174A0825F75E548BB081EDC1E4466BC5604D699F11347F52268A8C; ASP.NET_SessionId=aq42rcz1c2tb22kmcul4x1xz; __RequestVerificationToken=bA9cBDYKMTVGV8LLGUFUHNGBiA88cmOfTQF-Ku7yU2B6EgBo1q_slnTBV8t_yaikLcPuvG6zByR_Yz7jvRznFQmLgKEwsqDJyByVU6KYvlFP255vqjdDj9OGdoMvXSVzJOOyb9pOXWN5o1O7W4bJ0A2"
+
 
 page_no = 1 # Add Continue from page functionality?
-while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < 15 and not fetch_disabled_for_testing and False:
+while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < 15 and not fetch_disabled_for_testing:
 	sleep_sec = random.uniform(1, 3)
 	print "INFO: Sleeping ({}) before loading results page ({})".format(sleep_sec, page_no)
 	time.sleep(sleep_sec)
@@ -713,6 +797,7 @@ print "#------------------------------------------------------------------------
 print "INFO: The last datetime read from a listing was: {}".format(last_listing_datetime)
 print "#------------------------------------------------------------------------------------------------"
 
+#------------------------------------
 # Test parsing with local data
 full_src_path = "ResponseBodyP2.txt"
 if fetch_disabled_for_testing and False:
@@ -720,7 +805,7 @@ if fetch_disabled_for_testing and False:
 		test_response_data = src_file_handle.read()
 		#print test_response_data
 		last_listing_datetime = ah_parse_results_page(test_response_data, listing_details_list, 1)
-
+#------------------------------------
 
 # Store retrieved information for lookups/checks later.
 with open(g_json_datafile, 'w') as json_file_handle:
@@ -741,16 +826,22 @@ for listing_detail in listing_details_list:
 with open(g_json_datafile, 'w') as json_file_handle:
 	json.dump(listing_details_list, json_file_handle, indent=2)
 
+#------------------------------------
 # Test only.
 #ah_visit_listing(listing_details_list[-1], True)
+#quit()
+#------------------------------------
 # Test parsing with local data
-if fetch_disabled_for_testing:
+if fetch_disabled_for_testing and False:
 	listing_detail = listing_details_list[-1]
 	full_src_path = "Response_{}.txt".format(listing_detail["item_id"]) # Response_22473.txt
 	with open(full_src_path, 'r') as src_file_handle:
 		test_response_data = src_file_handle.read()
 		ah_parse_listing_page(test_response_data, listing_detail)
+#------------------------------------
 
+if g_is_logged_in:
+	ah_do_logout()
 
 # TODO: Loop over results
 #	get_travel_time(centerLong,centerLat,longitude,latitude)

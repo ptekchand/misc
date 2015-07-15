@@ -43,48 +43,40 @@ if sys.stderr.encoding != 'cp850':
 	sys.stderr = codecs.getwriter('cp850')(sys.stderr, 'strict')
 
 #------------------------------------------------------------------------------
-def ah_get_params(page_no):
+def ah_get_params(page_no, method = "POST"):
 	url_params_prefix = ""
 	url_params_suffix  = "&ListType=1&Search=&adtype_id=0&location_id=0&furnish_id=0&haspictures=false&country_id=1&rok=0&kvm=0&price=0" # "&X-Requested-With=XMLHttpRequest"
 
-	referer_url_path = "/" # Think of making this more generic.
+	referer_url_path = "/annonser" # Think of making this more generic.
 	url_params_page = ""
-	if page_no > 1:
+	
+	if page_no > 0:
 		url_params_page = "Start={}".format(20*(page_no-1)+1)
-		referer_url_path = "/annonser" # "/annonser/{}".format(page_no-2)
+	if page_no > 1:
+		referer_url_path = "/annonser"
+		#if method == "GET"
+		#	referer_url_path = "/annonser/{}".format(page_no-2)
 		
 	url_params = url_params_prefix + url_params_page + url_params_suffix
 	
-	return referer_url_path, url_params # FIXME
+	return referer_url_path, url_params
 	
 #------------------------------------------------------------------------------
-def ah_get_headers(base_url, url_path, page_no):
-	#POST /annonser HTTP/1.1
-	#Host: www.ah.se
-	#Connection: keep-alive
-	#Content-Length: 150
-	#Accept: */*
-	#Origin: http://www.ah.se
-	#X-Requested-With: XMLHttpRequest
-	#User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.124 Safari/537.36
-	#Content-Type: application/x-www-form-urlencoded; charset=UTF-8
-	#Referer: http://www.ah.se/annonser
-	#Accept-Encoding: gzip, deflate
-	#Accept-Language: en-US,en;q=0.8
-	#Cookie: ASP.NET_SessionId=rqgmdoxd4e55u5x0qap3jlny; __gads=ID=ed98626fe36972f7:T=1433342584:S=ALNI_MYGTdLm_dXsVlGWcoOFrb0UBtaNNw; __RequestVerificationToken=riDWROKZtPYrHVDd3s86zspST4Umm3Vs-DJ7t7Ig9K9D3pWTRFbdSwhNLZB10XJI6NhPXRt66psOB9Ml-AU0nJtUk-4r5r-q7CFz3pEGmJKEzRM6_XTA28d0jOYQjkeV5FEA8Y-8g5ZU0w7YTkq5Gw2; __utma=124557146.1628329516.1433342585.1434121706.1435068671.10; __utmb=124557146.3.10.1435068671; __utmc=124557146; __utmz=124557146.1433342585.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); ListType=1
-	#curl "http://www.ah.se/annonser" -H "Cookie: ASP.NET_SessionId=rqgmdoxd4e55u5x0qap3jlny; __gads=ID=ed98626fe36972f7:T=1433342584:S=ALNI_MYGTdLm_dXsVlGWcoOFrb0UBtaNNw; __RequestVerificationToken=riDWROKZtPYrHVDd3s86zspST4Umm3Vs-DJ7t7Ig9K9D3pWTRFbdSwhNLZB10XJI6NhPXRt66psOB9Ml-AU0nJtUk-4r5r-q7CFz3pEGmJKEzRM6_XTA28d0jOYQjkeV5FEA8Y-8g5ZU0w7YTkq5Gw2; __utma=124557146.1628329516.1433342585.1434121706.1435068671.10; __utmb=124557146.3.10.1435068671; __utmc=124557146; __utmz=124557146.1433342585.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); ListType=1" -H "Origin: http://www.ah.se" -H "Accept-Encoding: gzip, deflate" -H "Accept-Language: en-US,en;q=0.8" -H "User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.124 Safari/537.36" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Accept: */*" -H "Referer: http://www.ah.se/annonser" -H "X-Requested-With: XMLHttpRequest" -H "Connection: keep-alive" --data "Start=1&ListType=1&Search=&adtype_id=0&location_id=0&furnish_id=0&haspictures=false&country_id=195&rok=0&kvm=0&price=0&X-Requested-With=XMLHttpRequest" --compressed
-	#Page 2
-	#curl "http://www.ah.se/annonser" -H "Cookie: ASP.NET_SessionId=rqgmdoxd4e55u5x0qap3jlny; __gads=ID=ed98626fe36972f7:T=1433342584:S=ALNI_MYGTdLm_dXsVlGWcoOFrb0UBtaNNw; __RequestVerificationToken=riDWROKZtPYrHVDd3s86zspST4Umm3Vs-DJ7t7Ig9K9D3pWTRFbdSwhNLZB10XJI6NhPXRt66psOB9Ml-AU0nJtUk-4r5r-q7CFz3pEGmJKEzRM6_XTA28d0jOYQjkeV5FEA8Y-8g5ZU0w7YTkq5Gw2; __utma=124557146.1628329516.1433342585.1434121706.1435068671.10; __utmb=124557146.3.10.1435068671; __utmc=124557146; __utmz=124557146.1433342585.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); ListType=1" -H "Origin: http://www.ah.se" -H "Accept-Encoding: gzip, deflate" -H "Accept-Language: en-US,en;q=0.8" -H "User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.124 Safari/537.36" -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -H "Accept: */*" -H "Referer: http://www.ah.se/annonser" -H "X-Requested-With: XMLHttpRequest" -H "Connection: keep-alive" --data "Start=21&ListType=1&Search=&adtype_id=0&location_id=0&furnish_id=0&haspictures=false&country_id=1&rok=0&kvm=0&price=0&X-Requested-With=XMLHttpRequest" --compressed
-	param_str = "Start=1&ListType=1&Search=&adtype_id=0&location_id=0&furnish_id=0&haspictures=false&country_id=1&rok=0&kvm=0&price=0" # "&X-Requested-With=XMLHttpRequest"
-	if page_no > 1:
-		referer_url_path, param_str = ah_get_params(page_no)
-	header_referer = 'http://{}{}?{}'.format(base_url, referer_url_path, param_str)
+def ah_get_headers(base_url, url_path, page_no, method = "POST"):
+	referer_url_path, param_str = ah_get_params(page_no)
+	header_referer = 'http://{}{}'.format(base_url, referer_url_path)
+	if method == "GET":
+		if page_no > 1:
+			referer_url_path, referer_param_str = ah_get_params(page_no-1)
+			header_referer = '{}?{}'.format(header_referer, referer_param_str)
 	header_user_agent = 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0'
 	headers = {
 		"Referer": header_referer,
 		"User-Agent": header_user_agent
 		#"Host:" base_url,
 	}
+	if method == "POST":
+		headers["Content-type"] = "application/x-www-form-urlencoded"
 	return headers
 
 #------------------------------------------------------------------------------
@@ -93,7 +85,6 @@ def ah_get_headers(base_url, url_path, page_no):
 
 #------------------------------------------------------------------------------
 def ah_search_apartments(listing_details_list, page_no = 1):
-	
 	base_url     = "www.ah.se"
 	url_path     = "/annonser" # ? before params
 	
@@ -117,22 +108,32 @@ def ah_search_apartments(listing_details_list, page_no = 1):
 	print "INFO: Fetched from ({}) response.status({}: {})\n{}".format(base_url, response.status, response.reason, response)
 	#print response_data
 	# Parse the received page.
-	return ah_parse_results_page(response_data, listing_details_list)
+	return ah_parse_results_page(response_data, listing_details_list, page_no)
 
 #------------------------------------------------------------------------------
 def ah_visit_listing(listing_detail, save_page = False):
-	base_url = listing_detail["url"].replace('http://', '')
-	next_slash_pos = base_url.find('/')
-	if next_slash_pos <=0:
-		print "WARN: url doesn't have a slash get get the path as expected\n    : {}".format(base_url)
-	next_qmark_pos = base_url.find('?')
-	url_path = base_url[next_slash_pos:next_qmark_pos]
-	url_params = base_url[next_qmark_pos+1:]
-	base_url = base_url[:next_slash_pos]
+	base_url     = "www.ah.se"
+	trim_base_url = False
+	if base_url.find('http://')>=0:
+		base_url = listing_detail["url"].replace('http://', '')
+		trim_base_url = True
+	listing_url = listing_detail["url"]
+	next_slash_pos = listing_url.find('/')
+	if next_slash_pos < 0:
+		print "WARN: url doesn't have a slash in the path as expected\n    : {}".format(listing_url)
+	next_qmark_pos = listing_url.find('?')
+	if next_qmark_pos < 0:
+		next_qmark_pos = None
+	url_path = listing_url[next_slash_pos:next_qmark_pos]
+	url_params = ""
+	if next_qmark_pos>=0:
+		url_params = base_url[next_qmark_pos+1:]
+	if trim_base_url:
+		base_url = base_url[:next_slash_pos]
 	
 	referer_url_path, referer_params_str  = ah_get_params(listing_detail["page"])
 
-	headers = ah_get_headers(base_url, referer_url_path, referer_params_str)
+	headers = ah_get_headers(base_url, referer_url_path, listing_detail["page"], "GET")
 	#print "DEBUG: Will visit:\n    base_url:{}\n    url_path:{}\n    url_params: {}\n    headers: {}".format(base_url, url_path, url_params, headers)
 	#quit()
 
@@ -196,12 +197,18 @@ def ah_parse_listing_page(response_data, listing_detail):
 	# <img id="hitta-map-broker" src="http://external.api.hitta.se/image/v2/0/15/59.296779:18.007213?width=727&amp;height=317&amp;markers=%7B%22pn%22%3A%5B59.296779%5D%2C%22pe%22%3A%5B18.007213%5D%2C%22marker%22%3A%22http%3A%2F%2Fwww.ah.se%2Fimg%2Fbostad%2Fmap_pin.png%22%2C%22mox%22%3A6%2C%22moy%22%3A-21%7D&amp;logo={}">
 	geo_inputs = sel_geo_inputs(page_element)
 	if geo_inputs is not None:
+		gps_coord_str = ""
 		if len(geo_inputs) != 2:
-			print u"WARN:  item_id({}) did not have the correct numbmer '#adinformation > input'? No GPS coords parsed.".format(listing_detail['item_id'])
+			print u"WARN:  item_id({}) did not have the correct number '#adinformation > input' ({})? No GPS coords parsed.".format(listing_detail['item_id'], len(geo_inputs))
+			print "WARN:  item_id({}) - Unknown page format returned. Saving for inspection.".format(listing_detail['item_id'])
+			with open(g_unknown_response, 'w') as ur_handle:
+				ur_handle.write(response_data)
+			g_stats["parse_warn"] += 1
+			quit()
 		else: 
 			gps_a = geo_inputs[0].get('value').strip()
 			gps_b = geo_inputs[1].get('value').strip()
-			if "longitude" in geo_inputs[0].get('name').strip(): # Ad.geodata.longitude / Ad_geodata_latitude 
+			if "longitude" in geo_inputs[0].get('name').strip(): # #Ad_geodata_longitude / #Ad_geodata_latitude 
 				gps_coord_str = "{},{}".format(gps_b, gps_a)
 			else:
 				gps_coord_str = "{},{}".format(gps_a, gps_b)
@@ -217,7 +224,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 			listing_detail["ad_expired"] = True
 		"""
 		else:
-			print "WARN:  item_id({}) - Unknown page format returned.".format(listing_detail['item_id'])
+			print "WARN:  item_id({}) - Unknown page format returned. Saving for inspection.".format(listing_detail['item_id'])
 			with open(g_unknown_response, 'w') as ur_handle:
 				ur_handle.write(response_data)
 			g_stats["parse_warn"] += 1
@@ -245,14 +252,19 @@ def ah_parse_listing_page(response_data, listing_detail):
 			#print u"DEBUG: property_text: {}".format(property_text)
 			
 			value_text = ""
-			if property_text == u"Hyra:":
+			if property_text == u"Hyra:" or property_text == u"Hyra högs.:" or property_text == u"Hyra lågs.:": # WARN: It uses text-transform: capitalize on these
 				value_text    = description_li.cssselect('.value > strong')[0].text.strip()
 			elif property_text == u"Visningar:":
 				'''<span class="value"><img src="/images/icon_statistics.png" alt="" style="display: inline-block; padding-right: 10px; line-height: 14px;">32</span>'''
 				#print u"DEBUG: value_text: {}".format(lxml.html.tostring(sel_value(description_li)[0]))
 				value_text    = description_li.cssselect('.value > img')[0].tail.strip()
 			else:
-				value_text    = sel_value(description_li)[0].text.strip()
+				value_text    = sel_value(description_li)[0].text
+				if value_text is None:
+					print u"WARN: property_text: {} has the value_text None".format(property_text)
+					value_text = ""
+				else:
+					value_text = value_text.strip()
 			#print u"DEBUG: value_text: {}".format(value_text)
 			
 			if property_text == u"Annonsnr:":
@@ -262,16 +274,22 @@ def ah_parse_listing_page(response_data, listing_detail):
 			elif property_text == u"Område:":
 				#Gröndal / Stockholm / Sverige
 				listing_detail["area"] = value_text
-			elif property_text == u"Hyra:":
-				# 9100 kr/Månad
+			elif property_text == u"Hyra:" or property_text == u"Hyra högs.:":
+				# "9100 kr/Månad" OR "3000 kr/Vecka"
 				# Strip away the stuff other than numbers, commas and decimals
 				check_rent = numeric_cre.match(value_text).group().strip().replace(' ', '')
-				# TODO: Remove the nbsp;
-				listing_detail['rent'] = listing_detail['rent'].replace(' ', '').replace('&nbsp;', '').replace('\u00a0', '')
+				if "Vecka" in value_text or "vecka" in value_text:
+					check_rent = check_rent*4
+				listing_detail['rent'] = listing_detail['rent'].replace(u'\xa0', '')
+				listing_rent_num_known = numeric_cre.match(listing_detail['rent']).group().strip()
 				if listing_detail['rent'] == "":
 					listing_detail['rent'] = check_rent
-				elif check_rent != numeric_cre.match(listing_detail['rent']).group().strip():
+				elif check_rent != listing_rent_num_known:
 					print u"INFO: Eh? {} has ({}):({}) was ({})".format(listing_detail['item_id'], property_text, value_text, listing_detail['rent'])
+					if check_rent > listing_rent_num_known:
+						listing_detail['rent'] = check_rent
+			elif property_text == u"Hyra lågs.:":
+				pass
 			elif property_text == u"Rok:":
 				# 3
 				check_rooms = numeric_cre.match(value_text).group().strip()
@@ -342,7 +360,7 @@ def ah_parse_results_page(response_data, listing_details_list, page_no):
 	#sel_size_span   = CSSSelector('.size')
 	#sel_rooms_span   CSSSelector('.rooms')
 	sel_time        = CSSSelector('.grid_15 > i')
-	sel_monthly_rent_span = CSSSelector('.grid_4 > span')
+	sel_rent_span = CSSSelector('.grid_4 > span')
 	sel_category = CSSSelector('.grid_3')
 	for div_item_row in sel_item_row(page_element):
 	
@@ -401,8 +419,11 @@ def ah_parse_results_page(response_data, listing_details_list, page_no):
 			listing_details_size         = details_text_list[0].strip()
 			listing_details_rooms        = details_text_list[1].strip()
 
-		monthly_rent_span = get_first_element(sel_monthly_rent_span, div_item_row, 'span', div_item_row_id, 'monthly_rent')
-		listing_details_monthly_rent = monthly_rent_span.text.strip() if monthly_rent_span is not None else ""
+		rent_span = get_first_element(sel_rent_span, div_item_row, 'span', div_item_row_id, 'rent') # WARN: This may be a weekly rent too!
+		listing_details_monthly_rent = rent_span.text.strip() if rent_span is not None else ""
+		#listing_details_monthly_rent = listing_details_monthly_rent.replace(' ', '').replace('&nbsp;', '').replace('&#160;', '').replace('\u00a0', '') # 'rent'
+		#listing_details_monthly_rent = listing_details_monthly_rent.decode("utf-8").replace('\u00a0', '')
+		listing_details_monthly_rent = listing_details_monthly_rent.replace(u'\xa0', '')
 
 		category_div = get_first_element(sel_category, div_item_row, 'div', div_item_row_id, 'category')
 		listing_detail_category = category_div.text.strip() if category_div is not None else ""
@@ -434,13 +455,19 @@ def ah_parse_results_page(response_data, listing_details_list, page_no):
 			listing_details_list.append(listing_detail)
 		else:
 			diff_string = ""
-			for key,value in listing_detail:
+			#print u"DEBUG:"
+			#import pprint
+			#pprint.pprint( listing_detail )
+			# ValueError: too many values to unpack; without iteritems.
+			# Because it iterates over the keys. Any key more than 2 characters long would break 'key,value in ...'
+			# Alternately, use "key in listing_detail" with "value = listing_detail[key]"
+			for key,value in listing_detail.iteritems():
 				if value != existing_detail[key]:
-					diff_string = "{} {}:[\"{}\"->\"{}\"]".format(diff_string, key, value, existing_detail[key])
+					diff_string = u"{} {}:[\"{}\"->\"{}\"]".format(diff_string, key, value, existing_detail[key])
 			if diff_string == "":
 				diff_string = "No differences."
 			else:
-				diff_string = "Diff: {}".format(diff_string)
+				diff_string = u"Diff: {}".format(diff_string)
 			print u"WARN: {} already known. {}".format(listing_detail["item_id"], diff_string);
 			g_stats["parse_warn"] += 1
 			
@@ -448,14 +475,21 @@ def ah_parse_results_page(response_data, listing_details_list, page_no):
 			listing_details_rooms, listing_details_monthly_rent, listing_details_size,
 			listing_posted_datetime
 		)
+		#print u"DEBUG: {}".format( json.dumps(listing_detail, indent=2) )
 		
-		#if "item_58513233" in div_item_row_id:
-		#	quit()
 		g_stats["num_results"] += 1
 	# Return the date time of the last listing on this page
 	last_listing_datetime = datetime.now() - g_max_time_delta
 	if len(listing_details_list) > 0:
 		last_listing_datetime = datetime.strptime( listing_details_list[-1]["datetime"], '%Y-%m-%d' )
+		
+	# Store updated information for lookups/checks later.
+	store_on_each_page = True
+	if store_on_each_page:
+		global g_json_datafile
+		with open(g_json_datafile, 'w') as json_file_handle:
+			json.dump(listing_details_list, json_file_handle, indent=2)
+
 	return last_listing_datetime
 
 #------------------------------------------------------------------------------
@@ -509,7 +543,10 @@ g_stats = {
 # TODO: Change this to something closer to the commute
 centerLat = "59.3302967"; # Stockholm Central Station
 centerLong = "18.0582976"; # Stockholm Central Station
-
+mdpLat = "59.314337"
+mdpLon = "18.073551"
+aCentralLat = "59.312768"
+aCentralLon = "18.0735245"
 
 listing_details_list = []
 g_unknown_response = "ResponseBodyUnknown.txt"
@@ -518,21 +555,26 @@ g_json_datafile = "ResponseJSON.js"
 
 g_max_time_delta = timedelta(days=60);
 
-fetch_disabled_for_testing = True
+fetch_disabled_for_testing = False
 
+last_listing_datetime = datetime.now()
 # Load retrieved information for continuing between broken launches.
 if os.path.exists(g_json_datafile):
 	with open(g_json_datafile, 'r') as json_file_handle:
 		listing_details_list = json.load(json_file_handle)
+		if len(listing_details_list) > 0:
+			last_listing_datetime = datetime.strptime( listing_details_list[-1]["datetime"], '%Y-%m-%d' )
 
-page_no = 1
-last_listing_datetime = datetime.now()
-while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < 15 and not fetch_disabled_for_testing:
+page_no = 1 # Add Continue from page functionality?
+while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < 15 and not fetch_disabled_for_testing and False:
 	sleep_sec = random.uniform(1, 3)
 	print "INFO: Sleeping ({}) before loading results page ({})".format(sleep_sec, page_no)
 	time.sleep(sleep_sec)
 	last_listing_datetime = ah_search_apartments(listing_details_list, page_no)
 	page_no += 1
+print "#------------------------------------------------------------------------------------------------"
+print "INFO: The last datetime read from a listing was: {}".format(last_listing_datetime)
+print "#------------------------------------------------------------------------------------------------"
 
 # Test parsing with local data
 full_src_path = "ResponseBodyP2.txt"
@@ -542,28 +584,32 @@ if fetch_disabled_for_testing and False:
 		#print test_response_data
 		last_listing_datetime = ah_parse_results_page(test_response_data, listing_details_list, 1)
 
-"""
+
 # Store retrieved information for lookups/checks later.
 with open(g_json_datafile, 'w') as json_file_handle:
 	json.dump(listing_details_list, json_file_handle, indent=2)
 
+
+c_index = 0
+start_index = 0
 for listing_detail in listing_details_list:
-	if not listing_detail["visited"]:
+	if not listing_detail["visited"] and c_index >= start_index:
 		sleep_sec = random.uniform(1, 3)
 		print "INFO: Sleeping ({}) before loading listing page ({})".format(sleep_sec, listing_detail["item_id"])
 		time.sleep(sleep_sec)
 		ah_visit_listing(listing_detail)
+	c_index += 1
 
 # Store updated information for lookups/checks later.
 with open(g_json_datafile, 'w') as json_file_handle:
 	json.dump(listing_details_list, json_file_handle, indent=2)
-"""
+
 # Test only.
 #ah_visit_listing(listing_details_list[-1], True)
 # Test parsing with local data
 if fetch_disabled_for_testing:
 	listing_detail = listing_details_list[-1]
-	full_src_path = "Response_{}.txt".format(listing_detail["item_id"]) # Response_item_60214309.txt
+	full_src_path = "Response_{}.txt".format(listing_detail["item_id"]) # Response_22473.txt
 	with open(full_src_path, 'r') as src_file_handle:
 		test_response_data = src_file_handle.read()
 		ah_parse_listing_page(test_response_data, listing_detail)

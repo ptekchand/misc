@@ -16,8 +16,7 @@
 
 import httplib
 import time
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta, date
 from lxml.html import fromstring
 import lxml.html
 from lxml.cssselect import CSSSelector
@@ -63,6 +62,7 @@ def ah_get_params(page_no, method = "POST"):
 	
 #------------------------------------------------------------------------------
 def ah_get_headers(base_url, url_path, page_no, method = "POST"):
+	#param_str = "Start=1&ListType=1&Search=&adtype_id=0&location_id=0&furnish_id=0&haspictures=false&country_id=1&rok=0&kvm=0&price=0" # "&X-Requested-With=XMLHttpRequest"
 	referer_url_path, param_str = ah_get_params(page_no)
 	header_referer = 'http://{}{}'.format(base_url, referer_url_path)
 	if method == "GET":
@@ -240,6 +240,7 @@ def ah_parse_listing_page(response_data, listing_detail):
 		
 	
 	numeric_cre = re.compile('[0-9,. ]+')
+	idag_cre = re.compile('Idag \([0-9]+:[0-9]+\)')
 	# <ul style="padding-top: 10px;" id="description_details">
 	sel_description = CSSSelector('#adinformation > #description_details > li')
 	description_li_list = sel_description(page_element)
@@ -321,12 +322,19 @@ def ah_parse_listing_page(response_data, listing_detail):
 				if value_text != listing_detail['datetime']:
 					print u"INFO: Eh? {} has ({}):({}) was ({})".format(listing_detail['item_id'], property_text, value_text, listing_detail['datetime'])
 			elif property_text == u"Inflyttning:":
-				#16 juli 2015
+				# 16 juli 2015 | Idag (08:46) | Omg\u00e5ende
+				move_in_date = value_text
+				idag_cre_match = idag_cre.match(value_text)
+				if idag_cre_match is not None:
+					move_in_date = date.today().strftime("%d %B %Y") #listing_detail['datetime']
+				else:
+					date_time_str = datetime.strptime( listing_detail["datetime"], '%Y-%m-%d' ).strftime("%d %B %Y")
+					move_in_date = value_text.replace(u"Omgående", date_time_str)
 				prev_value = listing_detail["duration"]
 				if prev_value == "":
-					listing_detail["duration"] = value_text
+					listing_detail["duration"] = move_in_date
 				else:
-					listing_detail["duration"] = u"{} - {}".format(value_text, prev_value)
+					listing_detail["duration"] = u"{} - {}".format(move_in_date, prev_value)
 				pass
 			elif property_text == u"Utflyttning:":
 				#Tills vidare. # OR: 01 december 2015
@@ -563,11 +571,6 @@ def combine_cookies(old_cookie_str, new_set_cookie_str):
 	# This is an implementation looking at the _specific_ responses from this particular web service.
 	# Review: Use cookielib instead
 	# http://stackoverflow.com/questions/1016765/how-to-keep-alive-with-cookielib-and-httplib-in-python
-	#request_headers_cookie: ASP.NET_SessionId=pwosvvshtwkmjfkn0nab1snr; path=/; HttpOnly
-	#response_cookie: __RequestVerificationToken=VH5XOaMYSf9BGGYmOgFd5oj3O1PIZ0SYMXdLoaf0N9BPD0VvMMLI_P2RDko-vP3UJT81gVZlra1g9HqvZlhFGMJ0AJ5wWAxhOIAZo5NlaVlhDI1gBwEBOkvg5U7CWxF6A2nHv1RUTVWoie1BgQQapw2; path=/; HttpOnly
-	# Here's the BAD one:
-	#"email=me@some.domain; expires=Sat, 25-Jul-2015 15:09:31 GMT; path=/, .ASPXAUTH=B65FBAB1542F52FEC4C46FAA77FB951356C5AE9186E64FD1B712BE8522AF5915C69270B6CC10A9A541E4DD330F58DAD62705B4A9693359A6CE009ECB900F24906BBF61E65769EDCF1DD3979567ADC90D5395771D481C898E9B93B7A997A2E1D913C2BA2C124754D7668C256A8AA23ADA5084C599C76B2283A6EF536802FB043F34AAF0243D3854E8F370C79D4429CA278CD8FF4D3BF31BAF602070231FA4F50344B5D48AFE5AD0102D715C65A5131CF16FF01F37CBB6EF2F89D3E8F4BBC3E693; path=/; HttpOnly"
-	# What's up with the " path=/," part?
 	new_set_cookie_str = new_set_cookie_str.replace(' path=/,', '')
 	
 	old_cookie_list = old_cookie_str.split('; ')
@@ -764,12 +767,13 @@ aCentralLon = "18.0735245"
 listing_details_list = []
 
 g_session_cookies = ""
-g_max_time_delta = timedelta(days=60);
+g_max_time_delta = timedelta(days=30);
+max_page_no = 99
 
 g_unknown_response = "ResponseBodyUnknown.txt"
 g_json_datafile = "ResponseJSON.js"
 
-fetch_disabled_for_testing = False
+fetch_disabled_for_testing = False # TODO: Replace this with a list of phases in the settings file
 
 last_listing_datetime = datetime.now()
 # Load retrieved information for continuing between broken launches.
@@ -779,7 +783,9 @@ if os.path.exists(g_json_datafile):
 		if len(listing_details_list) > 0:
 			last_listing_datetime = datetime.strptime( listing_details_list[-1]["datetime"], '%Y-%m-%d' )
 
+# TODO: Create a settings.sample.json
 g_is_logged_in = False
+g_session_cookies = ""
 ah_email = ""
 ah_passw = ""
 g_session_cookies, g_is_logged_in = ah_do_login(ah_email, ah_passw)
@@ -787,7 +793,7 @@ g_session_cookies, g_is_logged_in = ah_do_login(ah_email, ah_passw)
 
 
 page_no = 1 # Add Continue from page functionality?
-while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < 15 and not fetch_disabled_for_testing:
+while datetime.now() - last_listing_datetime < g_max_time_delta and page_no < max_page_no and not fetch_disabled_for_testing:
 	sleep_sec = random.uniform(1, 3)
 	print "INFO: Sleeping ({}) before loading results page ({})".format(sleep_sec, page_no)
 	time.sleep(sleep_sec)
@@ -814,13 +820,14 @@ with open(g_json_datafile, 'w') as json_file_handle:
 
 c_index = 0
 start_index = 0
-for listing_detail in listing_details_list:
-	if not listing_detail["visited"] and c_index >= start_index:
-		sleep_sec = random.uniform(1, 3)
-		print "INFO: Sleeping ({}) before loading listing page ({})".format(sleep_sec, listing_detail["item_id"])
-		time.sleep(sleep_sec)
-		ah_visit_listing(listing_detail)
-	c_index += 1
+if not fetch_disabled_for_testing:
+	for listing_detail in listing_details_list:
+		if not listing_detail["visited"] and c_index >= start_index:
+			sleep_sec = random.uniform(1, 3)
+			print "INFO: Sleeping ({}) before loading listing page ({})".format(sleep_sec, listing_detail["item_id"])
+			time.sleep(sleep_sec)
+			ah_visit_listing(listing_detail, True)
+		c_index += 1
 
 # Store updated information for lookups/checks later.
 with open(g_json_datafile, 'w') as json_file_handle:
@@ -834,7 +841,7 @@ with open(g_json_datafile, 'w') as json_file_handle:
 # Test parsing with local data
 if fetch_disabled_for_testing and False:
 	listing_detail = listing_details_list[-1]
-	full_src_path = "Response_{}.txt".format(listing_detail["item_id"]) # Response_22473.txt
+	full_src_path = "page_data/Response_{}.txt".format(listing_detail["item_id"]) # Response_22473.txt
 	with open(full_src_path, 'r') as src_file_handle:
 		test_response_data = src_file_handle.read()
 		ah_parse_listing_page(test_response_data, listing_detail)

@@ -204,7 +204,7 @@ class GetHandler(BaseHTTPRequestHandler):
 				
 			# TODO: Parse and receive actual spend from transactions? (Since labels are applied multiple times)
 			# http://www.highcharts.com/demo/column-drilldown/dark-unica
-			highchart_series_1 = highchart_dict['series'].append({
+			highchart_series_1 = {
 						"type": 'pie',
 						"name": 'SpendSave',
 						"data": [
@@ -223,7 +223,8 @@ class GetHandler(BaseHTTPRequestHandler):
 							"followPointer": False,
 							"snap": 0
 						},
-					})
+					}
+			highchart_dict['series'].append(highchart_series_1)
 			
 			response_obj['data'] = highchart_dict
 			response_obj['status'] = 1
@@ -236,6 +237,7 @@ class GetHandler(BaseHTTPRequestHandler):
 			#message = json.dumps(response_obj); # Done outside path processing if block
 	
 	def get_month_keys(self, response_obj, by_month_with_label_sums):
+		# TODO: Make months a limited range (1 year) from selected month or Jan-Dec to begin.
 		#month_key_list = []
 		#for month_key in by_month_with_label_sums:
 		#	month_key_list.append(month_key)
@@ -244,7 +246,7 @@ class GetHandler(BaseHTTPRequestHandler):
 		response_obj['status'] = 1
 	
 	def get_balances(self, response_obj, by_month_with_label_sums):
-		# TODO: Check why we don't see the line chart on the page.
+		# TODO: Limited/configurable range.
 		# Build a basic line chart with the balance values
 		highchart_dict = get_default_highchart_dict()
 		# create_chart_data(by_month_with_label_sums[month_key])
@@ -252,18 +254,65 @@ class GetHandler(BaseHTTPRequestHandler):
 		highchart_dict['title']['text'] = "Balances"
 		highchart_dict['subtitle']['text'] = ""# "Month: {}".format(month_key)
 		highchart_dict['tooltip']['valueSuffix'] = " SEK"
-		highchart_dict['yAxis']['title']['text'] = "Amount (SEK)"
+		highchart_dict['yAxis'] = [{ # Primary yAxis
+			'labels': {
+				'format': '{value} SEK',
+				'style': {
+					'color': '#434348'
+				}
+			},
+			'title': {
+				'text': 'Balance',
+				'style': {
+					'color': '#434348'
+				}
+			}
+		}, { # Secondary yAxis
+			'title': {
+				'text': 'Spread',
+				'style': {
+					'color': '#90ed7d'
+				}
+			},
+			'labels': {
+				'format': '{value} SEK',
+				'style': {
+					'color': '#90ed7d'
+				}
+			},
+			'opposite': True
+		}]
 		highchart_series_0 = highchart_dict['series'][0]
 		highchart_series_0['name'] = 'Balances'
 		highchart_series_0['data'] = []
 		hichart_xAxis = highchart_dict['xAxis']
 		hichart_xAxis['categories'] = []
+		highchart_series_1 = {
+			'name': 'Received', # recvd or (recvd - spent)
+			'type': 'line',
+			'data': [],
+			'yAxis': 1
+		}
+		highchart_dict['series'].append(highchart_series_1)
+		highchart_series_2 = {
+			'name': 'Spent', # spent
+			'type': 'line',
+			'data': [],
+			'yAxis': 1
+		}
+		highchart_dict['series'].append(highchart_series_2)
 		
 		for month_key in sorted(by_month_with_label_sums):
 			totals_data = by_month_with_label_sums[month_key]['totals']
 			rounded_value = math.ceil(totals_data['balance']*100)/100
 			highchart_series_0['data'].append(rounded_value)
 			hichart_xAxis['categories'].append(month_key)
+			
+			#print u"spent: {}".format(-math.ceil(totals_data['spent']*100)/100)
+			#print u"recvd: {}".format(-math.ceil(totals_data['recvd']*100)/100)
+			#print u"hs_1: {}".format(highchart_series_1)
+			highchart_series_2['data'].append( -math.ceil(totals_data['spent']*100)/100 )
+			highchart_series_1['data'].append(  math.ceil(totals_data['recvd']*100)/100 )
 		
 		#print json.dumps(highchart_dict, indent=2)
 		response_obj['data'] = highchart_dict

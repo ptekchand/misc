@@ -1,0 +1,35 @@
+# highcharts samples etc; download your own copy.
+h5bp/js/vendor/highcharts-4.2.1/api/
+h5bp/js/vendor/highcharts-4.2.1/examples/
+h5bp/js/vendor/highcharts-4.2.1/gfx/
+h5bp/js/vendor/highcharts-4.2.1/graphics/
+h5bp/js/vendor/highcharts-4.2.1/js/**/*.src.js
+h5bp/js/vendor/highcharts-4.2.1/index.htm
+# These are the ones that you need.
+h5bp/js/vendor/highcharts-4.2.1/js/**/*.js
+
+# html5 boiler plate stuff; download your own copy.
+h5bp/doc/
+# h5bp/ *.xml, *.png, *.txt, 
+h5bp/*.xml
+h5bp/*.png
+h5bp/*.txt
+h5bp/favicon.ico
+h5bp/css/main.css
+h5bp/css/normalize.css
+h5bp/index.html
+h5bp/404.html
+h5bp/js/vendor/
+
+# Distribution / packaging
+.pyc
+
+# TagTransactions/HB parsers specific
+
+# Ignore personal data. Perhaps include sample files with made up data later.
+*.xlsx
+*.csv
+*json
+
+*.lnk
+Notes.txt

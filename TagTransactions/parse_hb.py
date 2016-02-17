@@ -277,7 +277,6 @@ def group_labels_by_month(transaction_record_list, by_month_with_label_sums):
 				"lsums":dict(zero_label_sums),
 				"totals":{"spent":0, "recvd":0, "balance":0}
 			}
-			# TODO: Add an acount balance (carried fowrad from previous month[s]) too? Show a line graph of this?
 			# TODO: Add information about investments too (ESPP, ITP) and add/process that in highcharts_json.py (Separate chart?)
 		
 		by_month_with_label_sums[month_key]["tlist"].append(t_record)
@@ -285,15 +284,16 @@ def group_labels_by_month(transaction_record_list, by_month_with_label_sums):
 			if label == "":
 				label = "no_label"
 			by_month_with_label_sums[month_key]["lsums"][label] += t_record.amount
-			if t_record.amount > 0:
-				by_month_with_label_sums[month_key]["totals"]["recvd"] += t_record.amount
-			else:	
-				by_month_with_label_sums[month_key]["totals"]["spent"] += t_record.amount
-			# Set the balance as the first transaction processed
-			# last transaction of the month since the excel is in reverse chronological order.
-			if by_month_with_label_sums[month_key]["totals"]["balance"] == 0:
-				by_month_with_label_sums[month_key]["totals"]["balance"] = t_record.balance
-	
+		
+		if t_record.amount > 0:
+			by_month_with_label_sums[month_key]["totals"]["recvd"] += t_record.amount
+		else:	
+			by_month_with_label_sums[month_key]["totals"]["spent"] += t_record.amount
+		# Set the balance as the first transaction processed
+		# last transaction of the month since the excel is in reverse chronological order.
+		if by_month_with_label_sums[month_key]["totals"]["balance"] == 0:
+			by_month_with_label_sums[month_key]["totals"]["balance"] = t_record.balance
+		
 	#by_month_with_label_sums[month_key]["totals"]["recvd"] = -math.ceil(by_month_with_label_sums[month_key]["totals"]["recvd"]*100)/100
 	#by_month_with_label_sums[month_key]["totals"]["spent"] = -math.ceil(by_month_with_label_sums[month_key]["totals"]["spent"]*100)/100
 
